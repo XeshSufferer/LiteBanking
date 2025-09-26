@@ -2,6 +2,8 @@ using System.Text.Json.Serialization.Metadata;
 using LiteBanking.Сache;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
