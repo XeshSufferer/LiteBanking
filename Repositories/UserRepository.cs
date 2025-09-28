@@ -18,7 +18,7 @@ public class UserRepository : IUserRepository
         _logger = logger;
     }
 
-    public async Task<bool> CreateUser(User user, CancellationToken ct = default)
+    public async Task<bool> CreateUser(User user,CancellationToken ct = default)
     {
         try
         {
@@ -70,4 +70,10 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetUserByUsername(string username, CancellationToken ct = default) =>
         await _context.Users.Where(u => u.Name == username).FirstOrDefaultAsync(ct);
+    
+    public async Task<User?> GetUserByKeywords(string keywords, CancellationToken ct = default) =>
+        await _context.Users.Where(u => u.HashKeyRecoveryWord == keywords).FirstOrDefaultAsync(ct);
+    
+    public async Task<User?> GetUserByKeywordsAndName(string login, string keywords, CancellationToken ct = default) =>
+        await _context.Users.Where(u => u.Name == login && u.HashKeyRecoveryWord == keywords).FirstOrDefaultAsync(ct);
 }

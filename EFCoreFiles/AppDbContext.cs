@@ -1,6 +1,41 @@
+using LiteBanking.Models.Domain;
+using Microsoft.EntityFrameworkCore;
+
 namespace LiteBanking.EFCoreFiles;
 
-public class AppDbContext
+public class AppDbContext : DbContext
 {
     
+    
+    public DbSet<User> Users { get; set; }
+    public DbSet<Balance> Balances { get; set; }
+    
+    
+    protected override void OnModelCreating(ModelBuilder b)
+    {
+        #region User
+        b.Entity<User>(u =>
+        {
+            u.HasKey(x => x.Id);                      
+            u.HasIndex(x => x.HashKeyRecoveryWord).IsUnique();
+            u.HasIndex(x => x.PhoneNumber).IsUnique();
+            u.Property(x => x.Name).HasMaxLength(100);
+            u.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+        #endregion
+
+        #region Balance
+        b.Entity<Balance>(bal =>
+        {
+            bal.HasKey(x => x.Id);
+            bal.Property(x => x.Amount).HasPrecision(18, 2);
+            bal.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+
+            bal.HasOne(b => b.Owner)                  
+                .WithMany()                            
+                .HasForeignKey(b => b.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);     
+        });
+        #endregion
+    }
 }
