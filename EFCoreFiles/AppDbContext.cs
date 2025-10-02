@@ -6,6 +6,9 @@ namespace LiteBanking.EFCoreFiles;
 public class AppDbContext : DbContext
 {
     
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    {
+    }
     
     public DbSet<User> Users { get; set; }
     public DbSet<Balance> Balances { get; set; }
@@ -18,7 +21,6 @@ public class AppDbContext : DbContext
         {
             u.HasKey(x => x.Id);                      
             u.HasIndex(x => x.HashKeyRecoveryWord).IsUnique();
-            u.HasIndex(x => x.PhoneNumber).IsUnique();
             u.Property(x => x.Name).HasMaxLength(100);
             u.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });

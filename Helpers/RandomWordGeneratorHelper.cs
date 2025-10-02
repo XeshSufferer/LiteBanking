@@ -1,4 +1,5 @@
 using System.Text.Json;
+using gnuciDictionary;
 using LiteBanking.Helpers.Interfaces;
 
 namespace LiteBanking.Helpers;
@@ -6,25 +7,21 @@ namespace LiteBanking.Helpers;
 public class RandomWordGeneratorHelper : IRandomWordGeneratorHelper
 {
     
-    private readonly string _apiUrl = "https://random-word-api.herokuapp.com/word?number=";
+    private readonly Random _random = new Random();
     
     public async Task<string> GetRandomWord(CancellationToken token = default)
     {
-        HttpResponseMessage content;
-        using (HttpClient client = new HttpClient())
-        {
-            content = await client.GetAsync(_apiUrl + 1.ToString(), token);
-        }
-        return JsonSerializer.Deserialize<List<string>>(await content.Content.ReadAsStringAsync(token))[0];
+        var words = EnglishDictionary.GetAllWords().ToArray();
+        return words[_random.Next(0, words.Length)].Value;
     }
 
     public async Task<List<string>> GetRandomWords(int count, CancellationToken token = default)
     {
-        HttpResponseMessage content;
-        using (HttpClient client = new HttpClient())
+        List<string> words = new(); 
+        for (int i = 0; i != count; i++)
         {
-            content = await client.GetAsync(_apiUrl + count.ToString(), token);
+            words.Add(await GetRandomWord(token));
         }
-        return JsonSerializer.Deserialize<List<string>>(await content.Content.ReadAsStringAsync(token));
+        return words;
     }
 }

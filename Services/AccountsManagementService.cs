@@ -32,7 +32,7 @@ public class AccountsManagementService(ICacheService cache, IUserRepository user
         var user = new User()
         {
             Name = username,
-            HashKeyRecoveryWord = hashing.Hash(keywords.ToString())
+            HashKeyRecoveryWord = hashing.Hash(string.Join(", ", keywords))
         };
 
         if (await userRepository.CreateUser(user, ct))
@@ -51,12 +51,14 @@ public class AccountsManagementService(ICacheService cache, IUserRepository user
     
     public async Task<User?> Login(string username, List<string> keywords, CancellationToken ct = default)
     {
-        return await userRepository.GetUserByKeywordsAndName(username, hashing.Hash(keywords.ToString()), ct);
+        
+        
+        return await userRepository.GetUserByKeywordsAndName(username, string.Join(", ", keywords), ct);
     }
 
     public async Task<bool> DeleteAccount(string username, string keywords, CancellationToken ct = default)
     {
-        var userForDelete = await userRepository.GetUserByKeywordsAndName(username, hashing.Hash(keywords), ct);
+        var userForDelete = await userRepository.GetUserByKeywordsAndName(username, keywords, ct);
         
         return await userRepository.DeleteUser(userForDelete.Id, ct);
     }
