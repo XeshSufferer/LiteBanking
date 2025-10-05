@@ -48,7 +48,25 @@ public class BalanceRepository : IBalanceRepository
 
     public async Task<List<Balance>?> GetAllUserBalances(long userId, CancellationToken ct = default) =>
         await _context.Balances.Where(b => b.OwnerId == userId).ToListAsync(ct);
-    
+
+    public async Task<bool> Send(Balance from, Balance to, CancellationToken ct = default)
+    {
+        try
+        {
+            using (var transaction = _context.Database.BeginTransaction())
+            {
+                _context.Balances.Update(from);
+                _context.Balances.Update(to);
+                await _context.SaveChangesAsync(ct);
+                transaction.Commit();
+            }
+            return true;
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
     
     
 }

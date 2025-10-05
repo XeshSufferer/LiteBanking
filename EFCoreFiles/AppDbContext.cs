@@ -32,12 +32,13 @@ public class AppDbContext : DbContext
             bal.HasKey(x => x.Id);
             bal.Property(x => x.Amount).HasPrecision(18, 2);
             bal.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-
-            bal.HasOne(b => b.Owner)                  
-                .WithMany()                            
+            b.Entity<Balance>()
+                .HasOne<User>()
+                .WithMany(u => u.Balances)
                 .HasForeignKey(b => b.OwnerId)
-                .OnDelete(DeleteBehavior.Cascade);     
+                .OnDelete(DeleteBehavior.Cascade); 
         });
         #endregion
+        
     }
 }

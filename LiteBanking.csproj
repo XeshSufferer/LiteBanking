@@ -24,14 +24,16 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.9" />
       <PackageReference Include="Microsoft.Extensions.Caching.Redis" Version="2.3.0" />
       <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.9" />
+      <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="9.0.9" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
       <PackageReference Include="System.Speech" Version="9.0.9" />
+      <PackageReference Include="System.Threading.RateLimiting" Version="9.0.9" />
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="Cache\" />
-      <Folder Include="Models\DTO\" />
     </ItemGroup>
 
 </Project>

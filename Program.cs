@@ -1,12 +1,16 @@
 using System.Collections;
+using System.Reflection;
 using System.Text.Json.Serialization.Metadata;
 using LiteBanking.Сache;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
+using Common.Extensions;
 using gnuciDictionary;
 using LiteBanking.EFCoreFiles;
 using LiteBanking.Helpers;
 using LiteBanking.Helpers.Interfaces;
+using LiteBanking.Models.DTO;
 using LiteBanking.Repositories;
 using LiteBanking.Repositories.Interfaces;
 using LiteBanking.Services;
@@ -15,6 +19,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -26,6 +32,40 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = $"{builder.Configuration["Cache:ConnectionString"]},abortConnect=false";
     options.InstanceName = "cache";
 });
+
+builder.Services.Configure<RouteOptions>(o =>
+    o.SetParameterPolicy<RegexInlineRouteConstraint>("regex"));
+builder.Services.AddHealthChecks();
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "LiteBanking API", Version = "v1" });
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ip,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 20,
+                QueueLimit = 0,        
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
+    });
+    
+    options.OnRejected = async (ctx, token) =>
+    {
+        ctx.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await ctx.HttpContext.Response.WriteAsync("Too many requests", token);
+    };
+});
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration["Db:ConnectionString"]));
@@ -77,6 +117,7 @@ builder.Services.AddSingleton<IHashingHelper, HashingHelper>();
 builder.Services.AddScoped<IBalanceRepository, BalanceRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
+builder.Services.AddScoped<IBalanceManagementService, BalanceManagementService>();
 builder.Services.AddScoped<IAccountManagementService, AccountsManagementService>();
 
 var app = builder.Build();
@@ -111,16 +152,20 @@ using (var scope = app.Services.CreateScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.MapHealthChecks("/health");
 
 var api = app.MapGroup("/api");
 
 var accounts = api.MapGroup("/accounts");
 var balances = api.MapGroup("/balances").RequireAuthorization();
 
-accounts.MapPost("/register", async (string name, IRandomWordGeneratorHelper helper, IAccountManagementService accounts, IJwtService jwt) =>
+accounts.MapPost("/register", async (RegisterRequestDTO req, IRandomWordGeneratorHelper helper, IAccountManagementService accounts, IJwtService jwt) =>
 {
     var words = await helper.GetRandomWords(3);
-    var result = await accounts.CreateAccount(name, words);
+    var result = await accounts.CreateAccount(req.Name, words);
     
     string allwords = "";
 
@@ -128,7 +173,7 @@ accounts.MapPost("/register", async (string name, IRandomWordGeneratorHelper hel
     {
         allwords += word + ", ";
     }
-
+    
     if (result != null) return Results.Ok(new
     {
         words = allwords,
@@ -140,16 +185,26 @@ accounts.MapPost("/register", async (string name, IRandomWordGeneratorHelper hel
 accounts.MapPost("/delete", async (ClaimsPrincipal user, IAccountManagementService accounts) => 
     await accounts.DeleteAccount(user.Identity.Name) ? Results.Ok() : Results.NotFound()).RequireAuthorization();
 
-accounts.MapPost("/login", async (string name, [FromBody] List<string> keywords, IAccountManagementService accounts) =>
+accounts.MapPost("/login", async (LoginRequestDTO req, IAccountManagementService accounts, IJwtService jwt) =>
 {
-    var result = await accounts.Login(name, keywords);
+    var result = await accounts.Login(req.Name, req.Keywords);
     
-    return result != null ? Results.Ok() :  Results.Unauthorized();
+    return result != null ? Results.Ok(jwt.GenerateToken(result.Id, "")) :  Results.Unauthorized();
 });
 
-accounts.MapPost("/loginbytoken", (ClaimsPrincipal user) =>
+accounts.MapPost("/checktoken", (ClaimsPrincipal user) =>
 {
     return Results.Ok();
 }).RequireAuthorization();
+
+
+balances.MapPost("/send", async (ClaimsPrincipal user, SendMoneyRequestDTO req, CancellationToken ct, IBalanceManagementService balances) =>
+{
+    return await balances.Send(req.From, req.To, req.Amount, ct) ? Results.Ok() : Results.InternalServerError();
+}).RequireAuthorization();
+
+balances.MapPost("/getInfo", async (ClaimsPrincipal user, GetMoneyRequestDTO req, IBalanceManagementService balances) => 
+    Results.Ok(await balances.GetBalanceAmount(req.BalanceId))
+).RequireAuthorization();
 
 app.Run();
