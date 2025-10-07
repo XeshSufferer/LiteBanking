@@ -1,12 +1,7 @@
-using System.Collections;
-using System.Reflection;
-using System.Text.Json.Serialization.Metadata;
 using LiteBanking.Сache;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
-using Common.Extensions;
-using gnuciDictionary;
 using LiteBanking.EFCoreFiles;
 using LiteBanking.Helpers;
 using LiteBanking.Helpers.Interfaces;
@@ -16,13 +11,8 @@ using LiteBanking.Repositories.Interfaces;
 using LiteBanking.Services;
 using LiteBanking.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -179,11 +169,11 @@ accounts.MapPost("/register", async (RegisterRequestDTO req, IRandomWordGenerato
         words = allwords,
         token = jwt.GenerateToken(result.Id, "")
     });
-    return Results.Conflict();
+    return Results.InternalServerError("Account creation failed. Try Again later");
 });
 
 accounts.MapPost("/delete", async (ClaimsPrincipal user, IAccountManagementService accounts) => 
-    await accounts.DeleteAccount(user.Identity.Name) ? Results.Ok() : Results.NotFound()).RequireAuthorization();
+    await accounts.DeleteAccount(user.Identity.Name) ? Results.Ok() : Results.InternalServerError("Account delete error")).RequireAuthorization();
 
 accounts.MapPost("/login", async (LoginRequestDTO req, IAccountManagementService accounts, IJwtService jwt) =>
 {
@@ -200,11 +190,24 @@ accounts.MapPost("/checktoken", (ClaimsPrincipal user) =>
 
 balances.MapPost("/send", async (ClaimsPrincipal user, SendMoneyRequestDTO req, CancellationToken ct, IBalanceManagementService balances) =>
 {
-    return await balances.Send(req.From, req.To, req.Amount, ct) ? Results.Ok() : Results.InternalServerError();
+    return await balances.Send(req.From, req.To, req.Amount,  long.Parse(user.Identity.Name), ct) ? Results.Ok() : Results.InternalServerError("Money Sending Error");
 }).RequireAuthorization();
 
-balances.MapPost("/getInfo", async (ClaimsPrincipal user, GetMoneyRequestDTO req, IBalanceManagementService balances) => 
-    Results.Ok(await balances.GetBalanceAmount(req.BalanceId))
-).RequireAuthorization();
+balances.MapPost("/create", async (ClaimsPrincipal user, IBalanceManagementService balances,CancellationToken ct) =>
+{
+    var result = await balances.CreateBalance(long.Parse(user.Identity.Name));
+    
+    return result.Item1 ? Results.Ok() : Results.InternalServerError("Create Balance Error");   
+}).RequireAuthorization();
+
+balances.MapPost("/getInfo", async (ClaimsPrincipal user, GetMoneyRequestDTO req, IBalanceManagementService balances) =>
+{
+    return await balances.GetBalanceAmount(req.BalanceId, long.Parse(user.Identity.Name));
+}).RequireAuthorization();
+
+balances.MapPost("/getMyBalancesCount", async (ClaimsPrincipal user, CancellationToken ct,IAccountManagementService accounts) =>
+{
+    return Results.Ok((await accounts.GetUserById(user.Identity.Name, ct)).Balances.Count);
+}).RequireAuthorization();
 
 app.Run();

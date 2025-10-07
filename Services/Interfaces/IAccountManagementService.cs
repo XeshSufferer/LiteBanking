@@ -12,4 +12,5 @@ public interface IAccountManagementService
     Task<bool> DeleteAccount(string username, List<string> keywords, CancellationToken ct = default);
     Task<bool> DeleteAccount(string userid, CancellationToken ct = default);
     Task<User?> Login(string username, List<string> keywords, CancellationToken ct = default);
+    Task<User?> GetUserById(string id, CancellationToken ct = default);
 }

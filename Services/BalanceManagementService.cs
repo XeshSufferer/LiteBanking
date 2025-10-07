@@ -7,12 +7,12 @@ namespace LiteBanking.Services;
 
 public class BalanceManagementService(ICacheService cache, IBalanceRepository balanceRepository) : IBalanceManagementService
 {
-    public async Task<bool> Send(long from, long to, decimal amount, CancellationToken ct = default)
+    public async Task<bool> Send(long from, long to, decimal amount, long userid, CancellationToken ct = default)
     {
         Balance? fromBal = await balanceRepository.GetBalanceById(from, ct);
         Balance? toBal   = await balanceRepository.GetBalanceById(to, ct);
 
-        if (fromBal == null || toBal == null || fromBal.Amount < amount)
+        if (fromBal == null || toBal == null || fromBal.Amount < amount || fromBal.OwnerId != userid)
             return false;
 
         bool ok = await balanceRepository.Send(fromBal, toBal, ct);
@@ -35,7 +35,7 @@ public class BalanceManagementService(ICacheService cache, IBalanceRepository ba
         return (result, injectedBalance);
     }
 
-    public async Task<decimal> GetBalanceAmount(long id, CancellationToken ct = default)
+    public async Task<decimal> GetBalanceAmount(long id, long userid, CancellationToken ct = default)
     {
         Balance? cachedBalance = await cache.GetAsync<Balance?>($"balance:{id}");
         if (cachedBalance != null)
@@ -45,6 +45,7 @@ public class BalanceManagementService(ICacheService cache, IBalanceRepository ba
         
         Balance? balance = await balanceRepository.GetBalanceById(id, ct);
         if(balance == null) return 0;
+        if (balance.OwnerId != userid) return 0;
         await cache.SetAsync($"balance:{id}", balance, TimeSpan.FromHours(1));
         return balance.Amount;
     }

@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
         b.Entity<Balance>(bal =>
         {
             bal.HasKey(x => x.Id);
+            bal.HasIndex(x => x.OwnerId);
             bal.Property(x => x.Amount).HasPrecision(18, 2);
             bal.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             b.Entity<Balance>()

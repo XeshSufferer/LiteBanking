@@ -26,6 +26,11 @@ public class AccountsManagementService(ICacheService cache, IUserRepository user
         
         return null;
     }
+
+    public async Task<User?> GetUserById(string id, CancellationToken ct = default)
+    {
+        return await userRepository.GetUserById(long.Parse(id), ct);
+    }
     
     public async Task<User?> CreateAccount(string username, List<string> keywords, CancellationToken ct = default)
     {
